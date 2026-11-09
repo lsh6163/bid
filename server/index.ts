@@ -45,6 +45,23 @@ app.get('/api/health', (_req, res) => {
   res.json({ ok: true });
 });
 
+const distDir = path.resolve(__dirname, '../dist');
+const indexHtml = path.join(distDir, 'index.html');
+if (fs.existsSync(indexHtml)) {
+  app.use(express.static(distDir));
+  app.use((req, res, next) => {
+    if (req.method !== 'GET' && req.method !== 'HEAD') {
+      next();
+      return;
+    }
+    if (req.path.startsWith('/api')) {
+      next();
+      return;
+    }
+    res.sendFile(indexHtml);
+  });
+}
+
 app.use((err: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
   const anyErr = err as { code?: string; message?: string };
   if (anyErr?.code === 'LIMIT_FILE_SIZE') {
@@ -59,8 +76,11 @@ const port = Number(process.env.PORT || 3001);
 async function main() {
   await ensureSchema();
   await seedIfEmpty();
-  app.listen(port, () => {
-    console.log(`API server listening on http://127.0.0.1:${port}`);
+  if (!fs.existsSync(indexHtml)) {
+    console.warn('dist/index.html이 없습니다. Render Build Command에 npm run build가 있는지 확인하세요.');
+  }
+  app.listen(port, '0.0.0.0', () => {
+    console.log(`API server listening on port ${port}`);
   });
 }
 
